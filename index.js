@@ -1,16 +1,7 @@
 const { Client } = require('discord.js-selfbot-v13');
-const { 
-    joinVoiceChannel, 
-    createAudioPlayer, 
-    createAudioResource, 
-    getVoiceConnection, 
-    VoiceConnectionStatus, 
-    AudioPlayerStatus 
-} = require("@discordjs/voice");
+const { joinVoiceChannel, getVoiceConnection, VoiceConnectionStatus } = require("@discordjs/voice");
 const dotenv = require('dotenv');
 const http = require('http');
-const fs = require('fs');
-const path = require('path');
 
 // .env dosyasındaki değişkenleri yükle
 dotenv.config();
@@ -21,75 +12,40 @@ const config = {
     Token: process.env.TOKEN,
     Guild: process.env.GUILD_ID,
     Channel: process.env.CHANNEL_ID,
-    ErrorLogChannel: '1298603518479044680', // Hata mesajlarının gönderileceği kanal ID'si
     Port: process.env.PORT
 };
 
-// Ses dosyası çalma fonksiyonu
-async function playSound(connection) {
-    const player = createAudioPlayer();
-    const filePath = path.join(__dirname, 'sound.mp3'); // Çalmak istediğin ses dosyası
-    const resource = createAudioResource(fs.createReadStream(filePath));
-
-    player.play(resource);
-    connection.subscribe(player);
-
-    player.on(AudioPlayerStatus.Idle, () => {
-        console.log("Ses bitti.");
-    });
-
-    console.log("Ses çalınıyor...");
-}
-
-// Belirli bir aralıkla ses çalma fonksiyonu
-async function scheduleSoundPlay(connection, interval) {
-    setInterval(async () => {
-        if (connection.state.status === VoiceConnectionStatus.Ready) {
-            await playSound(connection);
-        }
-    }, interval); // Interval, milisaniye cinsindendir, 60000 = 1 dakika
-}
-
 // Sesli kanala bağlanma fonksiyonu
-async function joinVC(client, channelId) {
+async function joinVC(channelId) {
     const guild = client.guilds.cache.get(config.Guild);
     const voiceChannel = guild.channels.cache.get(channelId);
     if (!voiceChannel) return console.log("Ses kanalı bulunamadı!");
-
+    
     const connection = joinVoiceChannel({
         channelId: voiceChannel.id,
         guildId: guild.id,
         adapterCreator: guild.voiceAdapterCreator,
         selfDeaf: false,
-        selfMute: true
+        selfMute: false
     });
 
     connection.on(VoiceConnectionStatus.Disconnected, async () => {
         console.log("Bağlantı koptu, yeniden bağlanılıyor...");
-        const errorChannel = client.channels.cache.get(config.ErrorLogChannel);
-        if (errorChannel) {
-            errorChannel.send("Bağlantı koptu, yeniden bağlanılıyor...");
-        }
-        setTimeout(async () => {
-            await joinVC(client, channelId); // Bağlantı koparsa yeniden bağlan
-        }, 5000); // 5 saniye bekleyip yeniden bağlanmayı dene
+        await joinVC(channelId); // Bağlantı koparsa yeniden bağlan
     });
 
-    // Belirli aralıklarla ses çal (örnek: her 1 dakikada bir 60 * 1000 = 60000 ms)
-    scheduleSoundPlay(connection, 60000);
-    
     console.log(`Ses kanalına bağlandı: ${voiceChannel.name}`);
 }
 
+// Bot hazır olduğunda çalışacak fonksiyon
 client.on('ready', async () => {
     console.log(`Logged in as ${client.user.tag}!`);
-    // Botun ilk bağlanacağı kanal .env dosyasındaki varsayılan kanal olmayacak
-    console.log("Bot hazır!");
+    await joinVC(config.Channel); // Varsayılan kanala bağlan
 });
 
 // Komutlar için mesaj olayını dinle
 client.on('messageCreate', async (message) => {
-    if (message.author.id !== client.user.id) return; // Komutlar sadece kendin için çalışır
+    if (message.author.id !== client.user.id) return;
 
     // !sesgir komutu
     if (message.content.startsWith('!sesgir')) {
@@ -100,7 +56,7 @@ client.on('messageCreate', async (message) => {
             return message.reply("Doğru bir ses kanalı ID'si belirtmelisiniz! Örnek: `!sesgir 123456789012345678`");
         }
 
-        await joinVC(client, channelId); // Kullanıcıdan alınan kanal ID ile bağlan
+        await joinVC(channelId);
     }
 
     // !sescik komutu
@@ -115,18 +71,37 @@ client.on('messageCreate', async (message) => {
     }
 });
 
+// Bot sesten düşerse tekrar girme
 client.on('voiceStateUpdate', async (oldState, newState) => {
     const oldVoice = oldState.channelId;
     const newVoice = newState.channelId;
 
     if (oldVoice !== newVoice) {
         if (!oldVoice) {
-            // Boş
+            // Yeni bir ses kanalına katıldı
         } else if (!newVoice) {
-            if (oldState.member.id !== client.user.id) return;
-            await joinVC(client, newState.channelId); // Çıkarsa son bulunduğu kanala geri bağlan
+            // Ses kanalından atıldığında
+            if (oldState.member.id === client.user.id) {
+                console.log("Bot ses kanalından atıldı, yeniden bağlanılıyor...");
+                await joinVC(oldVoice); // Son bulunduğu kanala geri bağlan
+            }
+        } else {
+            // Ses kanalından başka bir kanala geçildi
+            if (oldState.member.id === client.user.id) {
+                console.log(`Bot ses kanalını değiştiriyor: ${newVoice}`);
+                await joinVC(newVoice); // Yeni ses kanalına bağlan
+            }
         }
     }
+});
+
+// Hata mesajlarını belirli bir kanala gönder
+client.on('error', (error) => {
+    const errorChannel = client.channels.cache.get('1298603518479044680'); // Hata kanalının ID'sini buraya yaz
+    if (errorChannel) {
+        errorChannel.send(`Bir hata oluştu: ${error.message}`);
+    }
+    console.error('Hata:', error);
 });
 
 client.login(config.Token);
