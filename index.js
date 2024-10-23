@@ -13,7 +13,6 @@ const client = new Client({ checkUpdate: false });
 const config = {
     Token: process.env.TOKEN,
     Guild: process.env.GUILD_ID,
-    Channel: process.env.CHANNEL_ID,
     Port: process.env.PORT
 };
 
@@ -58,18 +57,19 @@ async function joinVC(client, channelId) {
 
     connection.on(VoiceConnectionStatus.Disconnected, async () => {
         console.log("Bağlantı koptu, yeniden bağlanılıyor...");
-        await joinVC(client, config.Channel); // Bağlantı koparsa yeniden bağlan
+        await joinVC(client, channelId); // Bağlantı koparsa yeniden bağlan
     });
 
     // Belirli aralıklarla ses çal (örnek: her 1 dakikada bir 60 * 1000 = 60000 ms)
-    scheduleSoundPlay(connection, 60000);
+    scheduleSoundPlay(connection, 600000);
     
     console.log(`Ses kanalına bağlandı: ${voiceChannel.name}`);
 }
 
 client.on('ready', async () => {
     console.log(`Logged in as ${client.user.tag}!`);
-    await joinVC(client, config.Channel);
+    // Botun ilk bağlanacağı kanal .env dosyasındaki varsayılan kanal olmayacak
+    console.log("Bot hazır!");
 });
 
 // Komutlar için mesaj olayını dinle
@@ -86,7 +86,7 @@ client.on('messageCreate', async (message) => {
         }
 
         const channelId = channelMention.slice(2, -1);
-        await joinVC(client, channelId);
+        await joinVC(client, channelId); // Kullanıcıdan alınan kanal ID ile bağlan
     }
 
     // !sescik komutu
@@ -110,12 +110,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
             // Boş
         } else if (!newVoice) {
             if (oldState.member.id !== client.user.id) return;
-            await joinVC(client, config.Channel);
-        } else {
-            if (oldState.member.id !== client.user.id) return;
-            if (newVoice !== config.Channel) {
-                await joinVC(client, config.Channel);
-            }
+            await joinVC(client, newState.channelId); // Çıkarsa son bulunduğu kanala geri bağlan
         }
     }
 });
