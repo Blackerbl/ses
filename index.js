@@ -1,5 +1,12 @@
 const { Client } = require('discord.js-selfbot-v13');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, getVoiceConnection, VoiceConnectionStatus, AudioPlayerStatus } = require("@discordjs/voice");
+const { 
+    joinVoiceChannel, 
+    createAudioPlayer, 
+    createAudioResource, 
+    getVoiceConnection, 
+    VoiceConnectionStatus, 
+    AudioPlayerStatus 
+} = require("@discordjs/voice");
 const dotenv = require('dotenv');
 const http = require('http');
 const fs = require('fs');
@@ -13,6 +20,8 @@ const client = new Client({ checkUpdate: false });
 const config = {
     Token: process.env.TOKEN,
     Guild: process.env.GUILD_ID,
+    Channel: process.env.CHANNEL_ID,
+    ErrorLogChannel: '1298603518479044680', // Hata mesajlarının gönderileceği kanal ID'si
     Port: process.env.PORT
 };
 
@@ -46,7 +55,7 @@ async function joinVC(client, channelId) {
     const guild = client.guilds.cache.get(config.Guild);
     const voiceChannel = guild.channels.cache.get(channelId);
     if (!voiceChannel) return console.log("Ses kanalı bulunamadı!");
-    
+
     const connection = joinVoiceChannel({
         channelId: voiceChannel.id,
         guildId: guild.id,
@@ -57,11 +66,17 @@ async function joinVC(client, channelId) {
 
     connection.on(VoiceConnectionStatus.Disconnected, async () => {
         console.log("Bağlantı koptu, yeniden bağlanılıyor...");
-        await joinVC(client, channelId); // Bağlantı koparsa yeniden bağlan
+        const errorChannel = client.channels.cache.get(config.ErrorLogChannel);
+        if (errorChannel) {
+            errorChannel.send("Bağlantı koptu, yeniden bağlanılıyor...");
+        }
+        setTimeout(async () => {
+            await joinVC(client, channelId); // Bağlantı koparsa yeniden bağlan
+        }, 5000); // 5 saniye bekleyip yeniden bağlanmayı dene
     });
 
     // Belirli aralıklarla ses çal (örnek: her 1 dakikada bir 60 * 1000 = 60000 ms)
-    scheduleSoundPlay(connection, 600000);
+    scheduleSoundPlay(connection, 60000);
     
     console.log(`Ses kanalına bağlandı: ${voiceChannel.name}`);
 }
