@@ -29,12 +29,19 @@ async function joinVC(channelId) {
         selfMute: false
     });
 
-    connection.on(VoiceConnectionStatus.Disconnected, async () => {
-        console.log("Bağlantı koptu, yeniden bağlanılıyor...");
-        await joinVC(channelId); // Bağlantı koparsa yeniden bağlan
-    });
-
+    // Önceki dinleyiciyi kaldır
+    connection.off(VoiceConnectionStatus.Disconnected, handleDisconnect);
+    
+    // Yeni dinleyiciyi ekle
+    connection.on(VoiceConnectionStatus.Disconnected, handleDisconnect);
+    
     console.log(`Ses kanalına bağlandı: ${voiceChannel.name}`);
+}
+
+// Bağlantı kopması durumunda yapılacak işlemler
+async function handleDisconnect() {
+    console.log("Bağlantı koptu, yeniden bağlanılıyor...");
+    await joinVC(config.Channel); // Varsayılan kanala geri bağlan
 }
 
 // Bot hazır olduğunda çalışacak fonksiyon
