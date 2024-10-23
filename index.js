@@ -79,13 +79,12 @@ client.on('messageCreate', async (message) => {
     // !sesgir komutu
     if (message.content.startsWith('!sesgir')) {
         const args = message.content.split(' ');
-        const channelMention = args[1];
+        const channelId = args[1];
 
-        if (!channelMention || !channelMention.startsWith('<#') || !channelMention.endsWith('>')) {
-            return message.reply("Doğru bir ses kanalı ID'si belirtmelisiniz! Örnek: `!sesgir #kanalid`");
+        if (!channelId || isNaN(channelId)) {
+            return message.reply("Doğru bir ses kanalı ID'si belirtmelisiniz! Örnek: `!sesgir 123456789012345678`");
         }
 
-        const channelId = channelMention.slice(2, -1);
         await joinVC(client, channelId); // Kullanıcıdan alınan kanal ID ile bağlan
     }
 
