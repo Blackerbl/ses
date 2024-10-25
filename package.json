@@ -1,20 +1,19 @@
 {
-  "name": "discord-bot-project",
+  "name": "nodejs",
   "version": "1.0.0",
-  "description": "Main bot and self-bot integration for Discord",
-  "main": "main.js",
+  "description": "",
+  "main": "index.js",
   "scripts": {
-    "start": "node main.js",
-    "selfbot": "node selfbot.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "dependencies": {
-    "discord.js": "^14.0.3",
-    "discord.js-selfbot-v13": "^1.14.0",
-    "@discordjs/voice": "^0.8.0",
-    "dotenv": "^10.0.0",
-    "child_process": "latest",
-    "http": "latest"
-  },
+  "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "@discordjs/voice": "^0.17.0",
+    "@types/node": "^18.0.6",
+    "discord.js": "^14.16.3",
+    "discord.js-selfbot-v13": "^3.4.0",
+    "dotenv": "^16.4.5"
+  }
 }
