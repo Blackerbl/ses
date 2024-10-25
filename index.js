@@ -1,123 +1,43 @@
-const { Client } = require('discord.js-selfbot-v13');
-const { joinVoiceChannel, getVoiceConnection, VoiceConnectionStatus } = require("@discordjs/voice");
-const dotenv = require('dotenv');
-const http = require('http');
+require('dotenv').config();
+const { Client, GatewayIntentBits } = require('discord.js');
+const { exec } = require('child_process');
 
-// .env dosyasındaki değişkenleri yükle
-dotenv.config();
+const mainBotToken = process.env.MAIN_BOT_TOKEN;
+const userId = process.env.USER_ID;
+const afkChannelId = process.env.AFK_CHANNEL_ID;
+const channelIds = process.env.CHANNEL_IDS.split(',');
 
-const client = new Client({ checkUpdate: false });
+const mainBot = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
 
-const config = {
-    Token: process.env.TOKEN,
-    Guild: process.env.GUILD_ID,
-    Channel: process.env.CHANNEL_ID,
-    Port: process.env.PORT
-};
+mainBot.once('ready', () => {
+    console.log('Ana bot hazır!');
+    setInterval(checkUserVoiceState, 5000);
+});
 
-// Sesli kanala bağlanma fonksiyonu
-async function joinVC(channelId) {
-    const guild = client.guilds.cache.get(config.Guild);
-    const voiceChannel = guild.channels.cache.get(channelId);
-    if (!voiceChannel) return console.log("Ses kanalı bulunamadı!");
-    
-    const connection = joinVoiceChannel({
-        channelId: voiceChannel.id,
-        guildId: guild.id,
-        adapterCreator: guild.voiceAdapterCreator,
-        selfDeaf: false,
-        selfMute: false
+async function checkUserVoiceState() {
+    const guild = mainBot.guilds.cache.first();
+    const member = await guild.members.fetch(userId);
+
+    if (!member.voice.channel) {
+        console.log('Kullanıcı ses kanalında değil, self-botu başlatılıyor...');
+        startSelfBot();
+    } else {
+        console.log(`Kullanıcı şu an ses kanalında: ${member.voice.channel.name}`);
+    }
+}
+
+function startSelfBot() {
+    exec(`node selfbot.js ${userId} ${channelIds.join(' ')}`, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`Self-bot çalıştırılırken hata oluştu: ${error.message}`);
+            return;
+        }
+        if (stderr) {
+            console.error(`Self-bot hatası: ${stderr}`);
+            return;
+        }
+        console.log(`Self-bot çıktısı: ${stdout}`);
     });
-
-    // Önceki dinleyiciyi kaldır
-    connection.off(VoiceConnectionStatus.Disconnected, handleDisconnect);
-    
-    // Yeni dinleyiciyi ekle
-    connection.on(VoiceConnectionStatus.Disconnected, handleDisconnect);
-    
-    console.log(`Ses kanalına bağlandı: ${voiceChannel.name}`);
 }
 
-// Bağlantı kopması durumunda yapılacak işlemler
-async function handleDisconnect() {
-    console.log("Bağlantı koptu, yeniden bağlanılıyor...");
-    await joinVC(config.Channel); // Varsayılan kanala geri bağlan
-}
-
-// Bot hazır olduğunda çalışacak fonksiyon
-client.on('ready', async () => {
-    console.log(`Logged in as ${client.user.tag}!`);
-    await joinVC(config.Channel); // Varsayılan kanala bağlan
-});
-
-// Komutlar için mesaj olayını dinle
-client.on('messageCreate', async (message) => {
-    if (message.author.id !== client.user.id) return;
-
-    // !sesgir komutu
-    if (message.content.startsWith('!sesgir')) {
-        const args = message.content.split(' ');
-        const channelId = args[1];
-
-        if (!channelId || isNaN(channelId)) {
-            return message.reply("Doğru bir ses kanalı ID'si belirtmelisiniz! Örnek: `!sesgir 123456789012345678`");
-        }
-
-        await joinVC(channelId);
-    }
-
-    // !sescik komutu
-    if (message.content === '!sescik') {
-        const connection = getVoiceConnection(config.Guild);
-        if (connection) {
-            connection.destroy();
-            console.log("Ses kanalından çıkıldı.");
-        } else {
-            message.reply("Bot zaten ses kanalında değil!");
-        }
-    }
-});
-
-// Bot sesten düşerse tekrar girme
-client.on('voiceStateUpdate', async (oldState, newState) => {
-    const oldVoice = oldState.channelId;
-    const newVoice = newState.channelId;
-
-    if (oldVoice !== newVoice) {
-        if (!oldVoice) {
-            // Yeni bir ses kanalına katıldı
-        } else if (!newVoice) {
-            // Ses kanalından atıldığında
-            if (oldState.member.id === client.user.id) {
-                console.log("Bot ses kanalından atıldı, yeniden bağlanılıyor...");
-                await joinVC(oldVoice); // Son bulunduğu kanala geri bağlan
-            }
-        } else {
-            // Ses kanalından başka bir kanala geçildi
-            if (oldState.member.id === client.user.id) {
-                console.log(`Bot ses kanalını değiştiriyor: ${newVoice}`);
-                await joinVC(newVoice); // Yeni ses kanalına bağlan
-            }
-        }
-    }
-});
-
-// Hata mesajlarını belirli bir kanala gönder
-client.on('error', (error) => {
-    const errorChannel = client.channels.cache.get('1298603518479044680'); // Hata kanalının ID'sini buraya yaz
-    if (errorChannel) {
-        errorChannel.send(`Bir hata oluştu: ${error.message}`);
-    }
-    console.error('Hata:', error);
-});
-
-client.login(config.Token);
-
-// Basit bir HTTP sunucusu
-http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.write('Bot is running');
-    res.end();
-}).listen(config.Port, () => {
-    console.log(`Server is running on port ${config.Port}`);
-});
+mainBot.login(mainBotToken);
