@@ -1,17 +1,20 @@
 {
-  "name": "discord-selfbot",
+  "name": "discord-bot-project",
   "version": "1.0.0",
-  "description": "A Discord selfbot that joins voice channels and responds to voiceState updates.",
-  "main": "index.js",
+  "description": "Main bot and self-bot integration for Discord",
+  "main": "main.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node main.js",
+    "selfbot": "node selfbot.js"
   },
-  "author": "sivvv0",
-  "license": "MIT",
   "dependencies": {
-    "discord.js-selfbot-v13": "^2.14.0",
-    "@discordjs/voice": "^0.13.0",
-    "dotenv": "^16.0.3",
-    "http": "0.0.1-security"
-  }
+    "discord.js": "^14.0.3",
+    "discord.js-selfbot-v13": "^1.14.0",
+    "@discordjs/voice": "^0.8.0",
+    "dotenv": "^10.0.0",
+    "child_process": "latest",
+    "http": "latest"
+  },
+  "author": "",
+  "license": "ISC"
 }
